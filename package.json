@@ -1,0 +1,23 @@
+{
+  "main": "dist-electron/main.js",
+  "name": "temp-desktop",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "electron": "npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/preload.cjs dist-electron/preload.cjs && electron .",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "electron": "^42.3.3",
+    "electron-builder": "^26.8.1",
+    "tsx": "^4.22.4",
+    "typescript": "~6.0.2",
+    "vite": "^8.0.12",
+    "wait-on": "^9.0.10"
+  }
+}
