@@ -22,6 +22,8 @@ contextBridge.exposeInMainWorld("syncApi", {
 
   readLocalFile: (localPath) =>
     ipcRenderer.invoke("sync:read-local-file", localPath),
+
+  refreshWatcher: () => ipcRenderer.invoke("sync:refresh-watcher"),
 });
 
 window.__lastElectronDroppedFiles = [];

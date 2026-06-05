@@ -11,6 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const {
   startAttachmentWatcher,
+  refreshAttachmentWatcher,
   stopAttachmentWatcher,
 } = require("./sync/fileWatcher.cjs");
 
@@ -36,8 +37,8 @@ function createWindow() {
     },
   });
 
-  //win.loadURL("https://mysimpledb.com");
-  win.loadURL("http://localhost:3000");
+  win.loadURL("https://mysimpledb.com");
+  //win.loadURL("http://localhost:3000");
 
   win.webContents.openDevTools({ mode: "undocked" });
 }
@@ -114,4 +115,13 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
     lastModified: stat.mtimeMs,
     dataBase64: buffer.toString("base64"),
   };
+});
+
+ipcMain.handle("sync:refresh-watcher", async () => {
+  refreshAttachmentWatcher({
+    listSyncedAttachments,
+    upsertSyncedAttachment,
+  });
+
+  return { ok: true };
 });
