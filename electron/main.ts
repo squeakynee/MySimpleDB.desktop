@@ -1,12 +1,18 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import fs from "node:fs";
 
 const require = createRequire(import.meta.url);
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
+const {
+  startAttachmentWatcher,
+  stopAttachmentWatcher,
+} = require("./sync/fileWatcher.cjs");
 
 const {
   upsertSyncedAttachment,
@@ -39,10 +45,17 @@ function createWindow() {
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
 
+  startAttachmentWatcher({
+    listSyncedAttachments,
+    upsertSyncedAttachment,
+  });
+
   createWindow();
 });
 
 app.on("window-all-closed", () => {
+  stopAttachmentWatcher();
+
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -60,4 +73,45 @@ ipcMain.handle("sync:list-attachments", async () => {
 
 ipcMain.handle("sync:disable-attachment", async (_event, attachmentId) => {
   return disableAttachmentSync(attachmentId);
+});
+
+ipcMain.handle("sync:select-files", async () => {
+  const result = await dialog.showOpenDialog(win!, {
+    title: "Select files to sync",
+    properties: ["openFile", "multiSelections"],
+  });
+
+  if (result.canceled) return [];
+
+  return result.filePaths.map((filePath) => {
+    const buffer = fs.readFileSync(filePath);
+    const stat = fs.statSync(filePath);
+
+    return {
+      localPath: filePath,
+      name: path.basename(filePath),
+      size: stat.size,
+      lastModified: stat.mtimeMs,
+      dataBase64: buffer.toString("base64"),
+    };
+  });
+});
+
+ipcMain.handle("sync:list-pending-uploads", async () => {
+  return listSyncedAttachments().filter(
+    (item: any) => item.pendingUpload === true && item.syncEnabled !== false
+  );
+});
+
+ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
+  const buffer = fs.readFileSync(localPath);
+  const stat = fs.statSync(localPath);
+
+  return {
+    localPath,
+    name: path.basename(localPath),
+    size: stat.size,
+    lastModified: stat.mtimeMs,
+    dataBase64: buffer.toString("base64"),
+  };
 });

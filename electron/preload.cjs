@@ -1,17 +1,42 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer } = require("electron");
 
-contextBridge.exposeInMainWorld('syncApi', {
+contextBridge.exposeInMainWorld("syncApi", {
   trackAttachment: (payload) =>
-    ipcRenderer.invoke('sync:track-attachment', payload),
+    ipcRenderer.invoke("sync:track-attachment", payload),
 
   getAttachment: (attachmentId) =>
-    ipcRenderer.invoke('sync:get-attachment', attachmentId),
+    ipcRenderer.invoke("sync:get-attachment", attachmentId),
 
-  listAttachments: () =>
-    ipcRenderer.invoke('sync:list-attachments'),
+  listAttachments: () => ipcRenderer.invoke("sync:list-attachments"),
+
+  selectFilesForSync: () => ipcRenderer.invoke("sync:select-files"),
 
   disableAttachment: (attachmentId) =>
-    ipcRenderer.invoke('sync:disable-attachment', attachmentId),
+    ipcRenderer.invoke("sync:disable-attachment", attachmentId),
+
+  getDroppedFilePaths: () => {
+    return window.__lastElectronDroppedFiles || [];
+  },
+
+  listPendingUploads: () => ipcRenderer.invoke("sync:list-pending-uploads"),
+
+  readLocalFile: (localPath) =>
+    ipcRenderer.invoke("sync:read-local-file", localPath),
 });
 
-console.log('[preload] syncApi exposed');
+window.__lastElectronDroppedFiles = [];
+
+window.addEventListener("drop", (event) => {
+  const files = Array.from(event.dataTransfer?.files || []);
+
+  window.__lastElectronDroppedFiles = files
+    .map((file) => file.path)
+    .filter(Boolean);
+
+  console.log(
+    "[electron-drop] captured paths:",
+    window.__lastElectronDroppedFiles
+  );
+});
+
+console.log("[preload] syncApi exposed");
