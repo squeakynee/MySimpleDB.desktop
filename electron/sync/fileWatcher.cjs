@@ -147,8 +147,6 @@ function handleLocalFileChange({
 
   upsertSyncedAttachment({
     ...attachment,
-    lastSeenMtime: currentMtime,
-    lastSeenSize: currentSize,
     syncStatus: "modified-local",
     pendingUpload: true,
   });
@@ -164,8 +162,24 @@ function stopAttachmentWatcher() {
   console.log("[sync-watch] stopped");
 }
 
+function getWatchedPaths() {
+  if (!watcher) return [];
+
+  const watched = watcher.getWatched();
+  const paths = [];
+
+  Object.entries(watched).forEach(([dir, files]) => {
+    files.forEach((file) => {
+      paths.push(`${dir}/${file}`);
+    });
+  });
+
+  return paths;
+}
+
 module.exports = {
   startAttachmentWatcher,
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
+  getWatchedPaths,
 };

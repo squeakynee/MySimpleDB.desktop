@@ -13,6 +13,7 @@ const {
   startAttachmentWatcher,
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
+  getWatchedPaths,
 } = require("./sync/fileWatcher.cjs");
 
 const {
@@ -124,4 +125,8 @@ ipcMain.handle("sync:refresh-watcher", async () => {
   });
 
   return { ok: true };
+});
+
+ipcMain.handle("sync:get-watched-paths", async () => {
+  return getWatchedPaths();
 });
