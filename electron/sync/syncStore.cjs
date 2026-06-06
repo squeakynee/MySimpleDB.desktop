@@ -7,6 +7,7 @@ const os = require("node:os");
 const fs = require("node:fs");
 
 let db = null;
+let didLogDbInit = false;
 
 console.log("[sync-store] loading syncStore.cjs");
 
@@ -35,8 +36,10 @@ function getSyncStorePath() {
 }
 
 function getDb() {
-  console.log("[sync-store] initializing sqlite db");
-  console.log("[sync-store] db path:", getSyncStorePath());
+  if (!didLogDbInit) {
+    console.log("[sync-store] initialized sqlite db:", getSyncStorePath());
+    didLogDbInit = true;
+  }
 
   if (db) return db;
 
@@ -197,6 +200,13 @@ function listSyncedAttachments() {
 }
 
 function disableAttachmentSync(attachmentId) {
+  console.log("[sync-store] disableAttachmentSync start", {
+    attachmentId,
+    deviceId: getDeviceId(),
+  });
+
+  const before = getSyncedAttachment(attachmentId);
+
   getDb()
     .prepare(
       `
@@ -209,7 +219,9 @@ function disableAttachmentSync(attachmentId) {
     )
     .run(String(attachmentId), getDeviceId());
 
-  return getSyncedAttachment(attachmentId);
+  const after = getSyncedAttachment(attachmentId);
+
+  return after;
 }
 
 module.exports = {

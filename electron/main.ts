@@ -74,7 +74,9 @@ ipcMain.handle("sync:list-attachments", async () => {
 });
 
 ipcMain.handle("sync:disable-attachment", async (_event, attachmentId) => {
-  return disableAttachmentSync(attachmentId);
+  const result = disableAttachmentSync(attachmentId);
+
+  return result;
 });
 
 ipcMain.handle("sync:select-files", async () => {
@@ -119,12 +121,18 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
 });
 
 ipcMain.handle("sync:refresh-watcher", async () => {
-  refreshAttachmentWatcher({
+  console.log("[sync-ipc] refresh-watcher called");
+
+  const before = getWatchedPaths ? getWatchedPaths() : [];
+
+  const result = refreshAttachmentWatcher({
     listSyncedAttachments,
     upsertSyncedAttachment,
   });
 
-  return { ok: true };
+  const after = getWatchedPaths ? getWatchedPaths() : [];
+
+  return { ok: true, before, after };
 });
 
 ipcMain.handle("sync:get-watched-paths", async () => {

@@ -11,9 +11,6 @@ contextBridge.exposeInMainWorld("syncApi", {
 
   selectFilesForSync: () => ipcRenderer.invoke("sync:select-files"),
 
-  disableAttachment: (attachmentId) =>
-    ipcRenderer.invoke("sync:disable-attachment", attachmentId),
-
   getDroppedFilePaths: () => {
     return window.__lastElectronDroppedFiles || [];
   },
@@ -26,6 +23,9 @@ contextBridge.exposeInMainWorld("syncApi", {
   refreshWatcher: () => ipcRenderer.invoke("sync:refresh-watcher"),
 
   getWatchedPaths: () => ipcRenderer.invoke("sync:get-watched-paths"),
+
+  disableAttachmentSync: (attachmentId) =>
+    ipcRenderer.invoke("sync:disable-attachment", attachmentId),
 });
 
 window.__lastElectronDroppedFiles = [];
@@ -36,11 +36,4 @@ window.addEventListener("drop", (event) => {
   window.__lastElectronDroppedFiles = files
     .map((file) => file.path)
     .filter(Boolean);
-
-  console.log(
-    "[electron-drop] captured paths:",
-    window.__lastElectronDroppedFiles
-  );
 });
-
-console.log("[preload] syncApi exposed");

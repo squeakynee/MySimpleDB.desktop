@@ -3,6 +3,7 @@ const chokidar = require("chokidar");
 
 let watcher = null;
 let debounceTimers = new Map();
+let watchedPathSet = new Set();
 
 function getWatchableAttachments(listSyncedAttachments) {
   return listSyncedAttachments()
@@ -22,6 +23,8 @@ function startAttachmentWatcher({
 
   const attachments = getWatchableAttachments(listSyncedAttachments);
   const paths = attachments.map((item) => item.localPath);
+
+  watchedPathSet = new Set(paths);
 
   if (paths.length === 0) {
     console.log("[sync-watch] no absolute synced files to watch");
@@ -70,7 +73,8 @@ function refreshAttachmentWatcher({
   upsertSyncedAttachment,
 }) {
   const attachments = getWatchableAttachments(listSyncedAttachments);
-  const paths = attachments.map((item) => item.localPath);
+  const desiredPaths = attachments.map((item) => item.localPath);
+  const desiredSet = new Set(desiredPaths);
 
   if (!watcher) {
     console.log("[sync-watch] refresh starting watcher");
@@ -80,27 +84,30 @@ function refreshAttachmentWatcher({
     });
   }
 
-  const watched = watcher.getWatched();
-  const watchedPaths = new Set();
+  const pathsToAdd = desiredPaths.filter((p) => !watchedPathSet.has(p));
+  const pathsToRemove = [...watchedPathSet].filter((p) => !desiredSet.has(p));
 
-  Object.entries(watched).forEach(([dir, files]) => {
-    files.forEach((file) => {
-      watchedPaths.add(`${dir}/${file}`);
-    });
-  });
-
-  const newPaths = paths.filter((filePath) => !watchedPaths.has(filePath));
-
-  if (newPaths.length === 0) {
-    console.log("[sync-watch] refresh no new files");
-    return watcher;
+  if (pathsToRemove.length > 0) {
+    watcher.unwatch(pathsToRemove);
+    pathsToRemove.forEach((p) => watchedPathSet.delete(p));
+    console.log("[sync-watch] removed files:", pathsToRemove);
   }
 
-  watcher.add(newPaths);
+  if (pathsToAdd.length > 0) {
+    watcher.add(pathsToAdd);
+    pathsToAdd.forEach((p) => watchedPathSet.add(p));
+    console.log("[sync-watch] added files:", pathsToAdd);
+  }
 
-  console.log("[sync-watch] added files:", newPaths);
+  if (pathsToAdd.length === 0 && pathsToRemove.length === 0) {
+    console.log("[sync-watch] refresh no changes");
+  }
 
   return watcher;
+}
+
+function getWatchedPaths() {
+  return [...watchedPathSet];
 }
 
 function handleLocalFileChange({
@@ -158,6 +165,7 @@ function stopAttachmentWatcher() {
   watcher.close();
   watcher = null;
   debounceTimers.clear();
+  watchedPathSet = new Set();
 
   console.log("[sync-watch] stopped");
 }
