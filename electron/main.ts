@@ -10,7 +10,6 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const {
-  startAttachmentWatcher,
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
   getWatchedPaths,
@@ -47,11 +46,6 @@ function createWindow() {
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
 
-  startAttachmentWatcher({
-    listSyncedAttachments,
-    upsertSyncedAttachment,
-  });
-
   createWindow();
 });
 
@@ -65,19 +59,20 @@ ipcMain.handle("sync:track-attachment", async (_event, payload) => {
   return upsertSyncedAttachment(payload);
 });
 
-ipcMain.handle("sync:get-attachment", async (_event, attachmentId) => {
-  return getSyncedAttachment(attachmentId);
+ipcMain.handle("sync:get-attachment", async (_event, userId, attachmentId) => {
+  return getSyncedAttachment(userId, attachmentId);
 });
 
-ipcMain.handle("sync:list-attachments", async () => {
-  return listSyncedAttachments();
+ipcMain.handle("sync:list-attachments", async (_event, userId) => {
+  return listSyncedAttachments(userId);
 });
 
-ipcMain.handle("sync:disable-attachment", async (_event, attachmentId) => {
-  const result = disableAttachmentSync(attachmentId);
-
-  return result;
-});
+ipcMain.handle(
+  "sync:disable-attachment",
+  async (_event, userId, attachmentId) => {
+    return disableAttachmentSync(userId, attachmentId);
+  }
+);
 
 ipcMain.handle("sync:select-files", async () => {
   const result = await dialog.showOpenDialog(win!, {
@@ -101,8 +96,8 @@ ipcMain.handle("sync:select-files", async () => {
   });
 });
 
-ipcMain.handle("sync:list-pending-uploads", async () => {
-  return listSyncedAttachments().filter(
+ipcMain.handle("sync:list-pending-uploads", async (_event, userId) => {
+  return listSyncedAttachments(userId).filter(
     (item: any) => item.pendingUpload === true && item.syncEnabled !== false
   );
 });
@@ -120,17 +115,16 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
   };
 });
 
-ipcMain.handle("sync:refresh-watcher", async () => {
-  console.log("[sync-ipc] refresh-watcher called");
+ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
+  const before = getWatchedPaths();
 
-  const before = getWatchedPaths ? getWatchedPaths() : [];
-
-  const result = refreshAttachmentWatcher({
+  refreshAttachmentWatcher({
+    userId,
     listSyncedAttachments,
     upsertSyncedAttachment,
   });
 
-  const after = getWatchedPaths ? getWatchedPaths() : [];
+  const after = getWatchedPaths();
 
   return { ok: true, before, after };
 });

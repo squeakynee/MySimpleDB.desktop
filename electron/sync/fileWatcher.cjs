@@ -5,14 +5,15 @@ let watcher = null;
 let debounceTimers = new Map();
 let watchedPathSet = new Set();
 
-function getWatchableAttachments(listSyncedAttachments) {
-  return listSyncedAttachments()
+function getWatchableAttachments(listSyncedAttachments, userId) {
+  return listSyncedAttachments(userId)
     .filter((item) => item.syncEnabled !== false)
     .filter((item) => item.localPath)
     .filter((item) => !String(item.localPath).startsWith("./"));
 }
 
 function startAttachmentWatcher({
+  userId,
   listSyncedAttachments,
   upsertSyncedAttachment,
 }) {
@@ -21,7 +22,7 @@ function startAttachmentWatcher({
     return watcher;
   }
 
-  const attachments = getWatchableAttachments(listSyncedAttachments);
+  const attachments = getWatchableAttachments(listSyncedAttachments, userId);
   const paths = attachments.map((item) => item.localPath);
 
   watchedPathSet = new Set(paths);
@@ -49,6 +50,7 @@ function startAttachmentWatcher({
       filePath,
       setTimeout(() => {
         handleLocalFileChange({
+          userId,
           filePath,
           listSyncedAttachments,
           upsertSyncedAttachment,
@@ -69,16 +71,18 @@ function startAttachmentWatcher({
 }
 
 function refreshAttachmentWatcher({
+  userId,
   listSyncedAttachments,
   upsertSyncedAttachment,
 }) {
-  const attachments = getWatchableAttachments(listSyncedAttachments);
+  const attachments = getWatchableAttachments(listSyncedAttachments, userId);
   const desiredPaths = attachments.map((item) => item.localPath);
   const desiredSet = new Set(desiredPaths);
 
   if (!watcher) {
     console.log("[sync-watch] refresh starting watcher");
     return startAttachmentWatcher({
+      userId,
       listSyncedAttachments,
       upsertSyncedAttachment,
     });
@@ -106,16 +110,17 @@ function refreshAttachmentWatcher({
   return watcher;
 }
 
-function getWatchedPaths() {
+function getWatchedPaths(userId) {
   return [...watchedPathSet];
 }
 
 function handleLocalFileChange({
+  userId,
   filePath,
   listSyncedAttachments,
   upsertSyncedAttachment,
 }) {
-  const attachments = listSyncedAttachments();
+  const attachments = listSyncedAttachments(userId);
 
   const attachment = attachments.find((item) => item.localPath === filePath);
 
@@ -168,21 +173,6 @@ function stopAttachmentWatcher() {
   watchedPathSet = new Set();
 
   console.log("[sync-watch] stopped");
-}
-
-function getWatchedPaths() {
-  if (!watcher) return [];
-
-  const watched = watcher.getWatched();
-  const paths = [];
-
-  Object.entries(watched).forEach(([dir, files]) => {
-    files.forEach((file) => {
-      paths.push(`${dir}/${file}`);
-    });
-  });
-
-  return paths;
 }
 
 module.exports = {

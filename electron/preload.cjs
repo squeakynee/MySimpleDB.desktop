@@ -4,10 +4,11 @@ contextBridge.exposeInMainWorld("syncApi", {
   trackAttachment: (payload) =>
     ipcRenderer.invoke("sync:track-attachment", payload),
 
-  getAttachment: (attachmentId) =>
-    ipcRenderer.invoke("sync:get-attachment", attachmentId),
+  getAttachment: (userId, attachmentId) =>
+    ipcRenderer.invoke("sync:get-attachment", userId, attachmentId),
 
-  listAttachments: () => ipcRenderer.invoke("sync:list-attachments"),
+  listAttachments: (userId) =>
+    ipcRenderer.invoke("sync:list-attachments", userId),
 
   selectFilesForSync: () => ipcRenderer.invoke("sync:select-files"),
 
@@ -15,17 +16,19 @@ contextBridge.exposeInMainWorld("syncApi", {
     return window.__lastElectronDroppedFiles || [];
   },
 
-  listPendingUploads: () => ipcRenderer.invoke("sync:list-pending-uploads"),
+  listPendingUploads: (userId) =>
+    ipcRenderer.invoke("sync:list-pending-uploads", userId),
 
   readLocalFile: (localPath) =>
     ipcRenderer.invoke("sync:read-local-file", localPath),
 
-  refreshWatcher: () => ipcRenderer.invoke("sync:refresh-watcher"),
+  refreshWatcher: (userId) =>
+    ipcRenderer.invoke("sync:refresh-watcher", userId),
 
   getWatchedPaths: () => ipcRenderer.invoke("sync:get-watched-paths"),
 
-  disableAttachmentSync: (attachmentId) =>
-    ipcRenderer.invoke("sync:disable-attachment", attachmentId),
+  disableAttachmentSync: (userId, attachmentId) =>
+    ipcRenderer.invoke("sync:disable-attachment", userId, attachmentId),
 });
 
 window.__lastElectronDroppedFiles = [];
