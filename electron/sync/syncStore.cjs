@@ -83,11 +83,46 @@ function getDb() {
 
     CREATE INDEX IF NOT EXISTS idx_synced_attachments_local_path
       ON synced_attachments(local_path);
+
+
+    CREATE TABLE IF NOT EXISTS sync_runtime_lock (
+      user_id TEXT NOT NULL,
+      device_id TEXT NOT NULL,
+      owner_app TEXT NOT NULL,
+      lock_token TEXT NOT NULL,
+      expires_at INTEGER NOT NULL,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, device_id)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_sync_runtime_lock_expires_at
+      ON sync_runtime_lock(expires_at);
+
   `);
 
   console.log("[sync-store] schema initialized");
 
   return db;
+}
+
+function getSharedSyncDir() {
+  return path.join(app.getPath("appData"), "MySimpleDB");
+}
+
+function ensureSharedSyncDir() {
+  const dir = getSharedSyncDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
+function getDeviceIdPath() {
+  return path.join(ensureSharedSyncDir(), "device-id");
+}
+
+function getSyncStorePath() {
+  return path.join(ensureSharedSyncDir(), "sync-store.db");
 }
 
 function upsertSyncedAttachment(payload) {
@@ -231,6 +266,7 @@ function disableAttachmentSync(userId, attachmentId) {
 }
 
 module.exports = {
+  getDb,
   getSyncStorePath,
   upsertSyncedAttachment,
   getSyncedAttachment,

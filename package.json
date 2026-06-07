@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build:electron": "tsc -p tsconfig.electron.json",
-    "electron": "npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && electron .",
+    "electron": "npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && cp electron/sync/syncLock.cjs dist-electron/sync/syncLock.cjs && electron .",
     "preview": "vite preview"
   },
   "devDependencies": {

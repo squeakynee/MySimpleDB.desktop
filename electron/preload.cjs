@@ -29,6 +29,17 @@ contextBridge.exposeInMainWorld("syncApi", {
 
   disableAttachmentSync: (userId, attachmentId) =>
     ipcRenderer.invoke("sync:disable-attachment", userId, attachmentId),
+
+  acquireLock: (userId) => ipcRenderer.invoke("sync:acquire-lock", userId),
+
+  renewLock: (userId, lockToken) =>
+    ipcRenderer.invoke("sync:renew-lock", userId, lockToken),
+
+  releaseLock: (userId, lockToken) =>
+    ipcRenderer.invoke("sync:release-lock", userId, lockToken),
+
+  getCurrentLock: (userId) =>
+    ipcRenderer.invoke("sync:get-current-lock", userId),
 });
 
 window.__lastElectronDroppedFiles = [];

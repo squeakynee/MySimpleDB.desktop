@@ -23,6 +23,13 @@ const {
   getSyncStorePath,
 } = require("./sync/syncStore.cjs");
 
+const {
+  acquireSyncLock,
+  renewSyncLock,
+  releaseSyncLock,
+  getCurrentLock,
+} = require("./sync/syncLock.cjs");
+
 let win: BrowserWindow | null = null;
 
 function createWindow() {
@@ -131,4 +138,29 @@ ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
 
 ipcMain.handle("sync:get-watched-paths", async () => {
   return getWatchedPaths();
+});
+
+ipcMain.handle("sync:acquire-lock", async (_event, userId) => {
+  return acquireSyncLock({
+    userId,
+    ownerApp: "desktop",
+  });
+});
+
+ipcMain.handle("sync:renew-lock", async (_event, userId, lockToken) => {
+  return renewSyncLock({
+    userId,
+    lockToken,
+  });
+});
+
+ipcMain.handle("sync:release-lock", async (_event, userId, lockToken) => {
+  return releaseSyncLock({
+    userId,
+    lockToken,
+  });
+});
+
+ipcMain.handle("sync:get-current-lock", async (_event, userId) => {
+  return getCurrentLock({ userId });
 });
