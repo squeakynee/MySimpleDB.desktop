@@ -5,6 +5,8 @@ let watcher = null;
 let debounceTimers = new Map();
 let watchedPathSet = new Set();
 
+let activeUserId = null;
+
 function getWatchableAttachments(listSyncedAttachments, userId) {
   return listSyncedAttachments(userId)
     .filter((item) => item.syncEnabled !== false)
@@ -17,6 +19,8 @@ function startAttachmentWatcher({
   listSyncedAttachments,
   upsertSyncedAttachment,
 }) {
+  activeUserId = userId;
+
   if (watcher) {
     console.log("[sync-watch] watcher already running");
     return watcher;
@@ -50,7 +54,7 @@ function startAttachmentWatcher({
       filePath,
       setTimeout(() => {
         handleLocalFileChange({
-          userId,
+          userId: activeUserId,
           filePath,
           listSyncedAttachments,
           upsertSyncedAttachment,
@@ -75,6 +79,8 @@ function refreshAttachmentWatcher({
   listSyncedAttachments,
   upsertSyncedAttachment,
 }) {
+  activeUserId = userId;
+
   const attachments = getWatchableAttachments(listSyncedAttachments, userId);
   const desiredPaths = attachments.map((item) => item.localPath);
   const desiredSet = new Set(desiredPaths);
