@@ -48,8 +48,8 @@ function getDb() {
   db.pragma("journal_mode = WAL");
 
   db.exec(`
-      CREATE TABLE synced_attachments (
-        user_id TEXT NOT NULL,
+      CREATE TABLE IF NOT EXISTS synced_attachments (
+        user_id TEXT NOT NULL,  
         attachment_id TEXT NOT NULL,
         device_id TEXT NOT NULL,
         device_name TEXT,
