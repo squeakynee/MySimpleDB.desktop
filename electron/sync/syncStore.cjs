@@ -11,8 +11,24 @@ let didLogDbInit = false;
 
 console.log("[sync-store] loading syncStore.cjs");
 
+function getSharedSyncDir() {
+  return path.join(app.getPath("appData"), "MySimpleDB");
+}
+
+function ensureSharedSyncDir() {
+  const dir = getSharedSyncDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  return dir;
+}
+
 function getDeviceIdPath() {
-  return path.join(app.getPath("userData"), "device-id");
+  return path.join(ensureSharedSyncDir(), "device-id");
+}
+
+function getSyncStorePath() {
+  return path.join(ensureSharedSyncDir(), "sync-store.db");
 }
 
 function getDeviceId() {
@@ -31,10 +47,6 @@ function getDeviceName() {
   return os.hostname();
 }
 
-function getSyncStorePath() {
-  return path.join(app.getPath("userData"), "sync-store.db");
-}
-
 function getDb() {
   if (!didLogDbInit) {
     console.log("[sync-store] initialized sqlite db:", getSyncStorePath());
@@ -49,7 +61,7 @@ function getDb() {
 
   db.exec(`
       CREATE TABLE IF NOT EXISTS synced_attachments (
-        user_id TEXT NOT NULL,  
+        user_id TEXT NOT NULL,
         attachment_id TEXT NOT NULL,
         device_id TEXT NOT NULL,
         device_name TEXT,
@@ -84,7 +96,6 @@ function getDb() {
     CREATE INDEX IF NOT EXISTS idx_synced_attachments_local_path
       ON synced_attachments(local_path);
 
-
     CREATE TABLE IF NOT EXISTS sync_runtime_lock (
       user_id TEXT NOT NULL,
       device_id TEXT NOT NULL,
@@ -97,32 +108,11 @@ function getDb() {
 
     CREATE INDEX IF NOT EXISTS idx_sync_runtime_lock_expires_at
       ON sync_runtime_lock(expires_at);
-
   `);
 
   console.log("[sync-store] schema initialized");
 
   return db;
-}
-
-function getSharedSyncDir() {
-  return path.join(app.getPath("appData"), "MySimpleDB");
-}
-
-function ensureSharedSyncDir() {
-  const dir = getSharedSyncDir();
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-  return dir;
-}
-
-function getDeviceIdPath() {
-  return path.join(ensureSharedSyncDir(), "device-id");
-}
-
-function getSyncStorePath() {
-  return path.join(ensureSharedSyncDir(), "sync-store.db");
 }
 
 function upsertSyncedAttachment(payload) {

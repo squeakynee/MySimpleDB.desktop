@@ -13,6 +13,7 @@ const {
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
   getDbWatchedPaths,
+  scanLocalFilesForChanges,
 } = require("./sync/fileWatcher.cjs");
 
 const {
@@ -120,8 +121,29 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
   };
 });
 
+/**
+ * Desktop recovery scan.
+ *
+ * This is intentionally active only in Desktop. It scans synced local files
+ * for changes that happened while the app was closed/asleep/offline and marks
+ * changed files as pending_upload=1 + sync_status='modified-local'.
+ */
+ipcMain.handle("sync:scan-local-changes", async (_event, userId) => {
+  return scanLocalFilesForChanges({
+    userId,
+    listSyncedAttachments,
+    upsertSyncedAttachment,
+  });
+});
+
 ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
   const before = getDbWatchedPaths(listSyncedAttachments, userId);
+
+  const recovery = scanLocalFilesForChanges({
+    userId,
+    listSyncedAttachments,
+    upsertSyncedAttachment,
+  });
 
   refreshAttachmentWatcher({
     userId,
@@ -131,7 +153,7 @@ ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
 
   const after = getDbWatchedPaths(listSyncedAttachments, userId);
 
-  return { ok: true, before, after };
+  return { ok: true, before, after, recovery };
 });
 
 ipcMain.handle("sync:get-watched-paths", async (_event, userId) => {

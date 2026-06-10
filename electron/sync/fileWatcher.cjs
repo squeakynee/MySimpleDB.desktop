@@ -14,6 +14,130 @@ function getWatchableAttachments(listSyncedAttachments, userId) {
     .filter((item) => !String(item.localPath).startsWith("./"));
 }
 
+function hasLocalFileChanged(attachment, stat) {
+  const currentMtime = Number(stat.mtimeMs || 0);
+  const currentSize = Number(stat.size || 0);
+
+  const previousMtime = Number(attachment.lastSeenMtime || 0);
+  const previousSize = Number(attachment.lastSeenSize || 0);
+
+  // mtime can have tiny floating point differences, so use a 1 ms tolerance.
+  const mtimeChanged = Math.abs(currentMtime - previousMtime) > 1;
+  const sizeChanged = currentSize !== previousSize;
+
+  return {
+    changed: mtimeChanged || sizeChanged,
+    currentMtime,
+    currentSize,
+    previousMtime,
+    previousSize,
+  };
+}
+
+function markAttachmentModifiedLocal({
+  attachment,
+  upsertSyncedAttachment,
+  reason,
+}) {
+  const updated = upsertSyncedAttachment({
+    ...attachment,
+    syncStatus: "modified-local",
+    pendingUpload: true,
+  });
+
+  console.log("[sync-watch] marked pending upload:", {
+    reason,
+    attachmentId: attachment.attachmentId,
+    localPath: attachment.localPath,
+  });
+
+  return updated;
+}
+
+/**
+ * Startup/resume recovery scan.
+ *
+ * This catches local file edits that happened while Desktop was closed,
+ * asleep, disconnected, or before chokidar was active.
+ */
+function scanLocalFilesForChanges({
+  userId,
+  listSyncedAttachments,
+  upsertSyncedAttachment,
+}) {
+  const attachments = getWatchableAttachments(listSyncedAttachments, userId);
+
+  const result = {
+    ok: true,
+    scanned: 0,
+    changed: 0,
+    missing: 0,
+    unchanged: 0,
+    markedPending: [],
+    missingFiles: [],
+  };
+
+  for (const attachment of attachments) {
+    result.scanned += 1;
+
+    let stat;
+
+    try {
+      stat = fs.statSync(attachment.localPath);
+    } catch (err) {
+      result.missing += 1;
+      result.missingFiles.push({
+        attachmentId: attachment.attachmentId,
+        localPath: attachment.localPath,
+      });
+
+      console.warn("[sync-watch] startup scan local file missing:", {
+        attachmentId: attachment.attachmentId,
+        localPath: attachment.localPath,
+      });
+
+      continue;
+    }
+
+    const change = hasLocalFileChanged(attachment, stat);
+
+    if (!change.changed) {
+      result.unchanged += 1;
+      continue;
+    }
+
+    result.changed += 1;
+
+    console.log("[sync-watch] startup scan found local change:", {
+      attachmentId: attachment.attachmentId,
+      localPath: attachment.localPath,
+      previousMtime: change.previousMtime,
+      currentMtime: change.currentMtime,
+      previousSize: change.previousSize,
+      currentSize: change.currentSize,
+    });
+
+    markAttachmentModifiedLocal({
+      attachment,
+      upsertSyncedAttachment,
+      reason: "startup-scan",
+    });
+
+    result.markedPending.push({
+      attachmentId: attachment.attachmentId,
+      localPath: attachment.localPath,
+      previousMtime: change.previousMtime,
+      currentMtime: change.currentMtime,
+      previousSize: change.previousSize,
+      currentSize: change.currentSize,
+    });
+  }
+
+  console.log("[sync-watch] startup scan complete:", result);
+
+  return result;
+}
+
 function startAttachmentWatcher({
   userId,
   listSyncedAttachments,
@@ -164,29 +288,25 @@ function handleLocalFileChange({
     return;
   }
 
-  const currentMtime = stat.mtimeMs;
-  const currentSize = stat.size;
+  const change = hasLocalFileChanged(attachment, stat);
 
-  const previousMtime = Number(attachment.lastSeenMtime || 0);
-  const previousSize = Number(attachment.lastSeenSize || 0);
-
-  if (currentMtime === previousMtime && currentSize === previousSize) {
+  if (!change.changed) {
     return;
   }
 
   console.log("[sync-watch] local file modified:", {
     attachmentId: attachment.attachmentId,
     filePath,
-    previousMtime,
-    currentMtime,
-    previousSize,
-    currentSize,
+    previousMtime: change.previousMtime,
+    currentMtime: change.currentMtime,
+    previousSize: change.previousSize,
+    currentSize: change.currentSize,
   });
 
-  upsertSyncedAttachment({
-    ...attachment,
-    syncStatus: "modified-local",
-    pendingUpload: true,
+  markAttachmentModifiedLocal({
+    attachment,
+    upsertSyncedAttachment,
+    reason: "watcher-change",
   });
 }
 
@@ -206,4 +326,5 @@ module.exports = {
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
   getDbWatchedPaths,
+  scanLocalFilesForChanges,
 };

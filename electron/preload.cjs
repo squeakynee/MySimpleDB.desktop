@@ -22,6 +22,9 @@ contextBridge.exposeInMainWorld("syncApi", {
   readLocalFile: (localPath) =>
     ipcRenderer.invoke("sync:read-local-file", localPath),
 
+  scanLocalChanges: (userId) =>
+    ipcRenderer.invoke("sync:scan-local-changes", userId),
+
   refreshWatcher: (userId) =>
     ipcRenderer.invoke("sync:refresh-watcher", userId),
 
