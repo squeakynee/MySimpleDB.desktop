@@ -9,6 +9,8 @@ const require = createRequire(import.meta.url);
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const OWNER_APP = "desktop";
+
 const {
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
@@ -51,6 +53,12 @@ function createWindow() {
   win.webContents.openDevTools({ mode: "undocked" });
 }
 
+function isActiveSyncOwner(userId: string | number): boolean {
+  const lock = getCurrentLock({ userId });
+
+  return !!lock && lock.owner_app === OWNER_APP;
+}
+
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
   createWindow();
@@ -62,6 +70,23 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("sync:track-attachment", async (_event, payload) => {
+  const userId = payload?.userId;
+
+  if (!isActiveSyncOwner(userId)) {
+    console.log("[sync] skipping track-attachment; desktop is not lock owner", {
+      userId,
+      lock: getCurrentLock({ userId }),
+    });
+
+    return {
+      ok: false,
+      skipped: true,
+      reason: "not-lock-owner",
+      before: [],
+      after: [],
+    };
+  }
+
   return upsertSyncedAttachment(payload);
 });
 
@@ -103,6 +128,18 @@ ipcMain.handle("sync:select-files", async () => {
 });
 
 ipcMain.handle("sync:list-pending-uploads", async (_event, userId) => {
+  if (!isActiveSyncOwner(userId)) {
+    console.log(
+      "[sync] skipping list-pending-uploads; desktop is not lock owner",
+      {
+        userId,
+        lock: getCurrentLock({ userId }),
+      }
+    );
+
+    return [];
+  }
+
   return listSyncedAttachments(userId).filter(
     (item: any) => item.pendingUpload === true && item.syncEnabled !== false
   );
@@ -129,6 +166,22 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
  * changed files as pending_upload=1 + sync_status='modified-local'.
  */
 ipcMain.handle("sync:scan-local-changes", async (_event, userId) => {
+  if (!isActiveSyncOwner(userId)) {
+    console.log(
+      "[sync] skipping scan-local-changes; desktop is not lock owner",
+      {
+        userId,
+        lock: getCurrentLock({ userId }),
+      }
+    );
+
+    return {
+      ok: false,
+      skipped: true,
+      reason: "not-lock-owner",
+    };
+  }
+
   return scanLocalFilesForChanges({
     userId,
     listSyncedAttachments,
@@ -137,6 +190,21 @@ ipcMain.handle("sync:scan-local-changes", async (_event, userId) => {
 });
 
 ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
+  if (!isActiveSyncOwner(userId)) {
+    console.log("[sync] skipping refresh-watcher; desktop is not lock owner", {
+      userId,
+      lock: getCurrentLock({ userId }),
+    });
+
+    return {
+      ok: false,
+      skipped: true,
+      reason: "not-lock-owner",
+      before: [],
+      after: [],
+    };
+  }
+
   const before = getDbWatchedPaths(listSyncedAttachments, userId);
 
   const recovery = scanLocalFilesForChanges({
