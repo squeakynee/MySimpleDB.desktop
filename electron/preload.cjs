@@ -25,7 +25,11 @@ contextBridge.exposeInMainWorld("syncApi", {
   refreshWatcher: (userId) =>
     ipcRenderer.invoke("sync:refresh-watcher", userId),
 
-  getWatchedPaths: () => ipcRenderer.invoke("sync:get-watched-paths"),
+  getWatchedPaths: (userId) =>
+    ipcRenderer.invoke("sync:get-watched-paths", userId),
+
+  getDbWatchedPaths: (userId) =>
+    ipcRenderer.invoke("sync:get-watched-paths", userId),
 
   disableAttachmentSync: (userId, attachmentId) =>
     ipcRenderer.invoke("sync:disable-attachment", userId, attachmentId),

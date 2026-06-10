@@ -1,20 +1,60 @@
 {
   "main": "dist-electron/main.js",
-  "name": "temp-desktop",
+  "name": "mysimpledb-desktop",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "build": "vite build",
     "build:electron": "tsc -p tsconfig.electron.json",
     "electron": "npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && cp electron/sync/syncLock.cjs dist-electron/sync/syncLock.cjs && electron .",
+    "dist:mac": "npm run build && npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && cp electron/sync/syncLock.cjs dist-electron/sync/syncLock.cjs && electron-builder --mac dmg",
     "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.mysimpledb.desktop",
+    "productName": "MySimpleDB-Desktop",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "category": "public.app-category.productivity",
+      "icon": "build/icon.icns"
+    },
+    "dmg": {
+      "title": "MySimpleDB Installer",
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 140,
+          "y": 190
+        },
+        {
+          "x": 400,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ]
+    }
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
     "concurrently": "^10.0.3",
     "electron": "^35.7.5",
-    "electron-builder": "^26.8.1",
+    "electron-builder": "^26.15.2",
     "electron-rebuild": "^3.2.9",
     "tsx": "^4.22.4",
     "typescript": "~6.0.2",

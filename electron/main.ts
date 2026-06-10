@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 const {
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
-  getWatchedPaths,
+  getDbWatchedPaths,
 } = require("./sync/fileWatcher.cjs");
 
 const {
@@ -45,20 +45,18 @@ function createWindow() {
   });
 
   win.loadURL("https://mysimpledb.com");
-  //win.loadURL("http://localhost:3000");
+  // win.loadURL("http://localhost:3000");
 
   win.webContents.openDevTools({ mode: "undocked" });
 }
 
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
-
   createWindow();
 });
 
 app.on("window-all-closed", () => {
   stopAttachmentWatcher();
-
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -123,7 +121,7 @@ ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
 });
 
 ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
-  const before = getWatchedPaths();
+  const before = getDbWatchedPaths(listSyncedAttachments, userId);
 
   refreshAttachmentWatcher({
     userId,
@@ -131,13 +129,13 @@ ipcMain.handle("sync:refresh-watcher", async (_event, userId) => {
     upsertSyncedAttachment,
   });
 
-  const after = getWatchedPaths();
+  const after = getDbWatchedPaths(listSyncedAttachments, userId);
 
   return { ok: true, before, after };
 });
 
-ipcMain.handle("sync:get-watched-paths", async () => {
-  return getWatchedPaths();
+ipcMain.handle("sync:get-watched-paths", async (_event, userId) => {
+  return getDbWatchedPaths(listSyncedAttachments, userId);
 });
 
 ipcMain.handle("sync:acquire-lock", async (_event, userId) => {
@@ -163,4 +161,22 @@ ipcMain.handle("sync:release-lock", async (_event, userId, lockToken) => {
 
 ipcMain.handle("sync:get-current-lock", async (_event, userId) => {
   return getCurrentLock({ userId });
+});
+
+app.on("render-process-gone", (_, details) => {
+  console.error("Renderer crashed", details);
+});
+
+app.on("before-quit", () => {
+  BrowserWindow.getAllWindows().forEach((win) => {
+    win.setIgnoreMouseEvents(false);
+  });
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err);
+});
+
+process.on("unhandledRejection", (reason) => {
+  console.error("Unhandled Rejection:", reason);
 });

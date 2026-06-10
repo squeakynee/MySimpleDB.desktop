@@ -64,7 +64,25 @@ function startAttachmentWatcher({
   });
 
   watcher.on("unlink", (filePath) => {
-    console.warn("[sync-watch] local file missing:", filePath);
+    setTimeout(() => {
+      if (fs.existsSync(filePath)) {
+        console.log(
+          "[sync-watch] unlink was temporary, file exists:",
+          filePath
+        );
+
+        handleLocalFileChange({
+          userId: activeUserId,
+          filePath,
+          listSyncedAttachments,
+          upsertSyncedAttachment,
+        });
+
+        return;
+      }
+
+      console.warn("[sync-watch] local file missing:", filePath);
+    }, 1500);
   });
 
   watcher.on("error", (err) => {
@@ -116,8 +134,10 @@ function refreshAttachmentWatcher({
   return watcher;
 }
 
-function getWatchedPaths(userId) {
-  return [...watchedPathSet];
+function getDbWatchedPaths(listSyncedAttachments, userId) {
+  return getWatchableAttachments(listSyncedAttachments, userId).map(
+    (item) => item.localPath
+  );
 }
 
 function handleLocalFileChange({
@@ -185,5 +205,5 @@ module.exports = {
   startAttachmentWatcher,
   refreshAttachmentWatcher,
   stopAttachmentWatcher,
-  getWatchedPaths,
+  getDbWatchedPaths,
 };
