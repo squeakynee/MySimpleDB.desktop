@@ -25,6 +25,17 @@ function acquireSyncLock({ userId, ownerApp, ttlMs = 30000 }) {
     .get(String(userId), deviceId);
 
   if (existing && existing.expires_at > nowMs()) {
+    if (existing.owner_app === ownerApp) {
+      return {
+        acquired: true,
+        alreadyOwned: true,
+        lockToken: existing.lock_token,
+        deviceId,
+        expiresAt: existing.expires_at,
+        existing,
+      };
+    }
+
     return {
       acquired: false,
       existing,
@@ -47,6 +58,7 @@ function acquireSyncLock({ userId, ownerApp, ttlMs = 30000 }) {
 
   return {
     acquired: true,
+    alreadyOwned: false,
     lockToken,
     deviceId,
     expiresAt,
@@ -94,6 +106,38 @@ function releaseSyncLock({ userId, lockToken }) {
   return result.changes > 0;
 }
 
+function releaseSyncLocksForOwner({ ownerApp, userId = null }) {
+  const db = getDb();
+  const deviceId = getDeviceId();
+
+  if (userId !== null && userId !== undefined) {
+    const result = db
+      .prepare(
+        `
+      DELETE FROM sync_runtime_lock
+      WHERE user_id = ?
+        AND device_id = ?
+        AND owner_app = ?
+    `
+      )
+      .run(String(userId), deviceId, ownerApp);
+
+    return result.changes;
+  }
+
+  const result = db
+    .prepare(
+      `
+    DELETE FROM sync_runtime_lock
+    WHERE device_id = ?
+      AND owner_app = ?
+  `
+    )
+    .run(deviceId, ownerApp);
+
+  return result.changes;
+}
+
 function getCurrentLock({ userId }) {
   const db = getDb();
 
@@ -115,5 +159,6 @@ module.exports = {
   acquireSyncLock,
   renewSyncLock,
   releaseSyncLock,
+  releaseSyncLocksForOwner,
   getCurrentLock,
 };

@@ -30,10 +30,13 @@ const {
   acquireSyncLock,
   renewSyncLock,
   releaseSyncLock,
+  releaseSyncLocksForOwner,
   getCurrentLock,
 } = require("./sync/syncLock.cjs");
 
 let win: BrowserWindow | null = null;
+const activeSyncLocks = new Map<string, string>();
+let isQuitting = false;
 
 function createWindow() {
   win = new BrowserWindow({
@@ -53,6 +56,37 @@ function createWindow() {
   win.webContents.openDevTools({ mode: "undocked" });
 }
 
+
+function rememberLock(userId: string | number, lockToken: string | undefined | null) {
+  if (!lockToken) return;
+  activeSyncLocks.set(String(userId), lockToken);
+}
+
+function forgetLock(userId: string | number, lockToken?: string | null) {
+  const key = String(userId);
+  if (!lockToken || activeSyncLocks.get(key) === lockToken) {
+    activeSyncLocks.delete(key);
+  }
+}
+
+function releaseOwnedLocks(reason: string) {
+  try {
+    stopAttachmentWatcher();
+  } catch (err) {
+    console.warn(`[sync] stop watcher ignored during ${reason}:`, err);
+  }
+
+  try {
+    const released = releaseSyncLocksForOwner({ ownerApp: OWNER_APP });
+    if (released) {
+      console.log(`[sync] released ${released} ${OWNER_APP} lock(s) during ${reason}`);
+    }
+    activeSyncLocks.clear();
+  } catch (err) {
+    console.error(`[sync] failed to release ${OWNER_APP} locks during ${reason}:`, err);
+  }
+}
+
 function isActiveSyncOwner(userId: string | number): boolean {
   const lock = getCurrentLock({ userId });
 
@@ -65,7 +99,7 @@ app.whenReady().then(() => {
 });
 
 app.on("window-all-closed", () => {
-  stopAttachmentWatcher();
+  releaseOwnedLocks("window-all-closed");
   if (process.platform !== "darwin") app.quit();
 });
 
@@ -229,24 +263,44 @@ ipcMain.handle("sync:get-watched-paths", async (_event, userId) => {
 });
 
 ipcMain.handle("sync:acquire-lock", async (_event, userId) => {
-  return acquireSyncLock({
+  const result = acquireSyncLock({
     userId,
-    ownerApp: "desktop",
+    ownerApp: OWNER_APP,
   });
+
+  if (result?.acquired) {
+    rememberLock(userId, result.lockToken);
+  }
+
+  return result;
 });
 
 ipcMain.handle("sync:renew-lock", async (_event, userId, lockToken) => {
-  return renewSyncLock({
+  const ok = renewSyncLock({
     userId,
     lockToken,
   });
+
+  if (ok) {
+    rememberLock(userId, lockToken);
+  } else {
+    forgetLock(userId, lockToken);
+  }
+
+  return ok;
 });
 
 ipcMain.handle("sync:release-lock", async (_event, userId, lockToken) => {
-  return releaseSyncLock({
+  const ok = releaseSyncLock({
     userId,
     lockToken,
   });
+
+  if (ok) {
+    forgetLock(userId, lockToken);
+  }
+
+  return ok;
 });
 
 ipcMain.handle("sync:get-current-lock", async (_event, userId) => {
@@ -258,6 +312,11 @@ app.on("render-process-gone", (_, details) => {
 });
 
 app.on("before-quit", () => {
+  if (!isQuitting) {
+    isQuitting = true;
+    releaseOwnedLocks("before-quit");
+  }
+
   BrowserWindow.getAllWindows().forEach((win) => {
     win.setIgnoreMouseEvents(false);
   });
