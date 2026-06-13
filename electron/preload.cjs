@@ -1,4 +1,24 @@
-const { contextBridge, ipcRenderer } = require("electron");
+const { contextBridge, ipcRenderer, webUtils } = require("electron");
+
+let lastDroppedFilePaths = [];
+
+window.addEventListener(
+  "drop",
+  (event) => {
+    lastDroppedFilePaths = Array.from(event.dataTransfer?.files || [])
+      .map((file) => {
+        try {
+          return webUtils.getPathForFile(file);
+        } catch {
+          return "";
+        }
+      })
+      .filter(Boolean);
+
+    console.log("[preload-sync-drop] captured paths:", lastDroppedFilePaths);
+  },
+  true
+);
 
 contextBridge.exposeInMainWorld("syncApi", {
   trackAttachment: (payload) =>
@@ -12,9 +32,7 @@ contextBridge.exposeInMainWorld("syncApi", {
 
   selectFilesForSync: () => ipcRenderer.invoke("sync:select-files"),
 
-  getDroppedFilePaths: () => {
-    return window.__lastElectronDroppedFiles || [];
-  },
+  getDroppedFilePaths: () => lastDroppedFilePaths,
 
   listPendingUploads: (userId) =>
     ipcRenderer.invoke("sync:list-pending-uploads", userId),
@@ -47,14 +65,4 @@ contextBridge.exposeInMainWorld("syncApi", {
 
   getCurrentLock: (userId) =>
     ipcRenderer.invoke("sync:get-current-lock", userId),
-});
-
-window.__lastElectronDroppedFiles = [];
-
-window.addEventListener("drop", (event) => {
-  const files = Array.from(event.dataTransfer?.files || []);
-
-  window.__lastElectronDroppedFiles = files
-    .map((file) => file.path)
-    .filter(Boolean);
 });
