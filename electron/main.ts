@@ -206,23 +206,6 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.handle("sync:track-attachment", async (_event, payload) => {
-  const userId = payload?.userId;
-
-  if (!isActiveSyncOwner(userId)) {
-    console.log("[sync] skipping track-attachment; desktop is not lock owner", {
-      userId,
-      lock: getCurrentLock({ userId }),
-    });
-
-    return {
-      ok: false,
-      skipped: true,
-      reason: "not-lock-owner",
-      before: [],
-      after: [],
-    };
-  }
-
   return upsertSyncedAttachment(payload);
 });
 
