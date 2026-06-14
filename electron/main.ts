@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from "electron";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
@@ -38,6 +38,100 @@ let win: BrowserWindow | null = null;
 const activeSyncLocks = new Map<string, string>();
 let isQuitting = false;
 
+function buildAppMenu() {
+  const isMac = process.platform === "darwin";
+  const isDev = !app.isPackaged;
+
+  const template: any[] = [];
+
+  if (isMac) {
+    template.push({
+      label: "MySimpleDB",
+      submenu: [
+        { role: "about", label: "About MySimpleDB" },
+        { type: "separator" },
+        { role: "services" },
+        { type: "separator" },
+        { role: "hide", label: "Hide MySimpleDB" },
+        { role: "hideOthers" },
+        { role: "unhide" },
+        { type: "separator" },
+        { role: "quit", label: "Quit MySimpleDB" },
+      ],
+    });
+  }
+
+  template.push(
+    {
+      label: "File",
+      submenu: [
+        { label: "Refresh", accelerator: "CmdOrCtrl+R", role: "reload" },
+        { type: "separator" },
+        { role: "close", label: "Close Window" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "View",
+      submenu: [
+        { role: "resetZoom" },
+        { role: "zoomIn" },
+        { role: "zoomOut" },
+        { type: "separator" },
+        { role: "togglefullscreen" },
+        ...(isDev ? [{ type: "separator" }, { role: "toggleDevTools" }] : []),
+      ],
+    },
+    {
+      label: "Window",
+      submenu: isMac
+        ? [
+            { role: "minimize" },
+            { role: "zoom" },
+            { type: "separator" },
+            { role: "front" },
+          ]
+        : [{ role: "minimize" }, { role: "zoom" }, { role: "close" }],
+    },
+    {
+      label: "Help",
+      submenu: [
+        {
+          label: "MySimpleDB Website",
+          click: async () => shell.openExternal("https://mysimpledb.com"),
+        },
+        {
+          label: "Privacy Policy",
+          click: async () =>
+            shell.openExternal("https://mysimpledb.com/privacy"),
+        },
+        {
+          label: "Terms of Service",
+          click: async () => shell.openExternal("https://mysimpledb.com/terms"),
+        },
+        {
+          label: "SMS Opt-In",
+          click: async () =>
+            shell.openExternal("https://mysimpledb.com/sms-optin"),
+        },
+      ],
+    }
+  );
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1400,
@@ -56,8 +150,10 @@ function createWindow() {
   win.webContents.openDevTools({ mode: "undocked" });
 }
 
-
-function rememberLock(userId: string | number, lockToken: string | undefined | null) {
+function rememberLock(
+  userId: string | number,
+  lockToken: string | undefined | null
+) {
   if (!lockToken) return;
   activeSyncLocks.set(String(userId), lockToken);
 }
@@ -79,11 +175,16 @@ function releaseOwnedLocks(reason: string) {
   try {
     const released = releaseSyncLocksForOwner({ ownerApp: OWNER_APP });
     if (released) {
-      console.log(`[sync] released ${released} ${OWNER_APP} lock(s) during ${reason}`);
+      console.log(
+        `[sync] released ${released} ${OWNER_APP} lock(s) during ${reason}`
+      );
     }
     activeSyncLocks.clear();
   } catch (err) {
-    console.error(`[sync] failed to release ${OWNER_APP} locks during ${reason}:`, err);
+    console.error(
+      `[sync] failed to release ${OWNER_APP} locks during ${reason}:`,
+      err
+    );
   }
 }
 
@@ -95,6 +196,7 @@ function isActiveSyncOwner(userId: string | number): boolean {
 
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
+  buildAppMenu();
   createWindow();
 });
 

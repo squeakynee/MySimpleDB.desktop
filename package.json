@@ -14,7 +14,7 @@
   },
   "build": {
     "appId": "com.mysimpledb.desktop",
-    "productName": "MySimpleDB-Desktop",
+    "productName": "MySimpleDB",
     "directories": {
       "output": "release"
     },
