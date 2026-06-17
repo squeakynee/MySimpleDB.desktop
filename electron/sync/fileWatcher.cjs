@@ -1,3 +1,4 @@
+const path = require("node:path");
 const fs = require("node:fs");
 const chokidar = require("chokidar");
 
@@ -54,6 +55,42 @@ function markAttachmentModifiedLocal({
   return updated;
 }
 
+function markAttachmentUnavailable({
+  attachment,
+  upsertSyncedAttachment,
+  reason,
+}) {
+  const updated = upsertSyncedAttachment({
+    ...attachment,
+    syncStatus: "unavailable",
+    pendingUpload: false,
+    lastSeenMtime: null,
+    lastSeenSize: null,
+  });
+
+  console.warn("[sync-watch] marked unavailable:", {
+    reason,
+    attachmentId: attachment.attachmentId,
+    localPath: attachment.localPath,
+    updatedSyncStatus: updated?.syncStatus,
+  });
+
+  return updated;
+}
+
+function normalizePathForCompare(value) {
+  if (!value) return "";
+  return path.resolve(String(value));
+}
+
+function findAttachmentByPath(attachments, filePath) {
+  const target = normalizePathForCompare(filePath);
+
+  return attachments.find(
+    (item) => normalizePathForCompare(item.localPath) === target
+  );
+}
+
 /**
  * Startup/resume recovery scan.
  *
@@ -86,6 +123,13 @@ function scanLocalFilesForChanges({
       stat = fs.statSync(attachment.localPath);
     } catch (err) {
       result.missing += 1;
+
+      markAttachmentUnavailable({
+        attachment,
+        upsertSyncedAttachment,
+        reason: "startup-scan-missing",
+      });
+
       result.missingFiles.push({
         attachmentId: attachment.attachmentId,
         localPath: attachment.localPath,
@@ -187,6 +231,24 @@ function startAttachmentWatcher({
     );
   });
 
+  watcher.on("add", (filePath) => {
+    clearTimeout(debounceTimers.get(filePath));
+
+    debounceTimers.set(
+      filePath,
+      setTimeout(() => {
+        console.log("[sync-watch] watched file restored:", filePath);
+
+        handleLocalFileChange({
+          userId: activeUserId,
+          filePath,
+          listSyncedAttachments,
+          upsertSyncedAttachment,
+        });
+      }, 500)
+    );
+  });
+
   watcher.on("unlink", (filePath) => {
     setTimeout(() => {
       if (fs.existsSync(filePath)) {
@@ -205,7 +267,19 @@ function startAttachmentWatcher({
         return;
       }
 
-      console.warn("[sync-watch] local file missing:", filePath);
+      const attachments = listSyncedAttachments(activeUserId);
+      const attachment = findAttachmentByPath(attachments, filePath);
+
+      if (!attachment) {
+        console.warn("[sync-watch] missing file not tracked:", filePath);
+        return;
+      }
+
+      markAttachmentUnavailable({
+        attachment,
+        upsertSyncedAttachment,
+        reason: "watcher-unlink",
+      });
     }, 1500);
   });
 
@@ -271,8 +345,7 @@ function handleLocalFileChange({
   upsertSyncedAttachment,
 }) {
   const attachments = listSyncedAttachments(userId);
-
-  const attachment = attachments.find((item) => item.localPath === filePath);
+  const attachment = findAttachmentByPath(attachments, filePath);
 
   if (!attachment) {
     console.warn("[sync-watch] changed file not tracked:", filePath);
@@ -290,7 +363,7 @@ function handleLocalFileChange({
 
   const change = hasLocalFileChanged(attachment, stat);
 
-  if (!change.changed) {
+  if (!change.changed && attachment.syncStatus !== "unavailable") {
     return;
   }
 
