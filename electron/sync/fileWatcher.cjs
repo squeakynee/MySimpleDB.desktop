@@ -64,6 +64,7 @@ function markAttachmentUnavailable({
     ...attachment,
     syncStatus: "unavailable",
     pendingUpload: false,
+    syncInfoDirty: true,
     lastSeenMtime: null,
     lastSeenSize: null,
   });

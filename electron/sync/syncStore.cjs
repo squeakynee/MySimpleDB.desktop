@@ -77,6 +77,7 @@ function getDb() {
 
         sync_status TEXT DEFAULT 'synced',
         pending_upload INTEGER DEFAULT 0,
+        sync_info_dirty INTEGER DEFAULT 0,
 
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -131,6 +132,7 @@ function upsertSyncedAttachment(payload) {
     lastSeenSize: payload.lastSeenSize ?? null,
     syncStatus: payload.syncStatus ?? "synced",
     pendingUpload: payload.pendingUpload ? 1 : 0,
+    syncInfoDirty: payload.syncInfoDirty ? 1 : 0,
   };
 
   database
@@ -149,6 +151,7 @@ function upsertSyncedAttachment(payload) {
         last_seen_size,
         sync_status,
         pending_upload,
+        sync_info_dirty,
         created_at,
         updated_at
       )
@@ -165,6 +168,7 @@ function upsertSyncedAttachment(payload) {
         @lastSeenSize,
         @syncStatus,
         @pendingUpload,
+        @syncInfoDirty,
         CURRENT_TIMESTAMP,
         CURRENT_TIMESTAMP
       )
@@ -178,6 +182,7 @@ function upsertSyncedAttachment(payload) {
         last_seen_size = excluded.last_seen_size,
         sync_status = excluded.sync_status,
         pending_upload = excluded.pending_upload,
+        sync_info_dirty = excluded.sync_info_dirty,
         updated_at = CURRENT_TIMESTAMP
     `
     )
@@ -202,6 +207,7 @@ function mapRow(row) {
     lastSeenSize: row.last_seen_size,
     syncStatus: row.sync_status,
     pendingUpload: Boolean(row.pending_upload),
+    syncInfoDirty: Boolean(row.sync_info_dirty),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -255,6 +261,60 @@ function disableAttachmentSync(userId, attachmentId) {
   return getSyncedAttachment(userId, attachmentId);
 }
 
+function listSyncedAttachments(userId) {
+  const rows = getDb()
+    .prepare(
+      `
+      SELECT *
+      FROM synced_attachments
+      WHERE user_id = ?
+      ORDER BY updated_at DESC
+    `
+    )
+    .all(String(userId));
+
+  return rows.map(mapRow);
+}
+
+function listDirtySyncInfo(userId) {
+  const db = getDb();
+
+  const rows = db
+    .prepare(
+      `
+      SELECT *
+      FROM synced_attachments
+      WHERE user_id = ?
+        AND sync_enabled != 0
+        AND sync_info_dirty = 1
+    `
+    )
+    .all(String(userId));
+
+  return rows.map(mapRow);
+}
+
+function markSyncInfoClean(attachmentId, userId) {
+  const db = getDb();
+
+  const result = db
+    .prepare(
+      `
+      UPDATE synced_attachments
+      SET sync_info_dirty = 0,
+          updated_at = datetime('now')
+      WHERE attachment_id = ?
+        AND user_id = ?
+    `
+    )
+    .run(String(attachmentId), String(userId));
+
+  return {
+    ok: true,
+    changes: result.changes,
+  };
+}
+
 module.exports = {
   getDb,
   getSyncStorePath,
@@ -262,6 +322,8 @@ module.exports = {
   getSyncedAttachment,
   listSyncedAttachments,
   disableAttachmentSync,
+  listDirtySyncInfo,
+  markSyncInfoClean,
   getDeviceId,
   getDeviceName,
 };

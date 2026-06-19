@@ -22,8 +22,10 @@ const {
   upsertSyncedAttachment,
   getSyncedAttachment,
   listSyncedAttachments,
+  listDirtySyncInfo,
   disableAttachmentSync,
   getSyncStorePath,
+  markSyncInfoClean,
 } = require("./sync/syncStore.cjs");
 
 const {
@@ -263,6 +265,29 @@ ipcMain.handle("sync:list-pending-uploads", async (_event, userId) => {
     (item: any) => item.pendingUpload === true && item.syncEnabled !== false
   );
 });
+
+ipcMain.handle("sync:list-dirty-sync-info", async (_event, userId) => {
+  if (!isActiveSyncOwner(userId)) {
+    return [];
+  }
+
+  return listDirtySyncInfo(userId);
+});
+
+ipcMain.handle(
+  "sync:mark-sync-info-clean",
+  async (_event, attachmentId, userId) => {
+    if (!isActiveSyncOwner(userId)) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: "not-lock-owner",
+      };
+    }
+
+    return markSyncInfoClean(attachmentId, userId);
+  }
+);
 
 ipcMain.handle("sync:read-local-file", async (_event, localPath) => {
   const buffer = fs.readFileSync(localPath);

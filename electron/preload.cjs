@@ -37,6 +37,12 @@ contextBridge.exposeInMainWorld("syncApi", {
   listPendingUploads: (userId) =>
     ipcRenderer.invoke("sync:list-pending-uploads", userId),
 
+  listDirtySyncInfo: (userId) =>
+    ipcRenderer.invoke("sync:list-dirty-sync-info", userId),
+
+  markSyncInfoClean: (attachmentId, userId) =>
+    ipcRenderer.invoke("sync:mark-sync-info-clean", attachmentId, userId),
+
   readLocalFile: (localPath) =>
     ipcRenderer.invoke("sync:read-local-file", localPath),
 
