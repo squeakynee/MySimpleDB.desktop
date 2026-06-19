@@ -5,11 +5,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "copy:electron": "node scripts/copy-electron-files.cjs",
+    "dev": "npm run build:electron && concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
-    "build:electron": "tsc -p tsconfig.electron.json",
-    "electron": "npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && cp electron/sync/syncLock.cjs dist-electron/sync/syncLock.cjs && electron .",
-    "dist:mac": "npm run build && npm run build:electron && mkdir -p dist-electron/sync && cp electron/sync/syncStore.cjs dist-electron/sync/syncStore.cjs && cp electron/sync/fileWatcher.cjs dist-electron/sync/fileWatcher.cjs && cp electron/preload.cjs dist-electron/preload.cjs && cp electron/sync/syncLock.cjs dist-electron/sync/syncLock.cjs && electron-builder --mac dmg",
+    "build:electron": "tsc -p tsconfig.electron.json && npm run copy:electron",
+    "electron": "npm run build:electron && electron .",
+    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac dmg",
     "preview": "vite preview"
   },
   "build": {
