@@ -147,9 +147,15 @@ function createWindow() {
   });
 
   win.loadURL("https://mysimpledb.com");
-  // win.loadURL("http://localhost:3000");
+  // win.loadURL('http://localhost:3000');
 
-  win.webContents.openDevTools({ mode: "undocked" });
+  if (!app.isPackaged) {
+    win.webContents.openDevTools({ mode: "undocked" });
+  }
+
+  win.on("closed", () => {
+    win = null;
+  });
 }
 
 function rememberLock(
@@ -198,8 +204,15 @@ function isActiveSyncOwner(userId: string | number): boolean {
 
 app.whenReady().then(() => {
   console.log("[sync-store] initialized at:", getSyncStorePath());
+
   buildAppMenu();
   createWindow();
+
+  app.on("activate", () => {
+    if (BrowserWindow.getAllWindows().length === 0) {
+      createWindow();
+    }
+  });
 });
 
 app.on("window-all-closed", () => {
