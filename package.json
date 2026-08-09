@@ -57,6 +57,7 @@
     "concurrently": "^10.0.3",
     "electron": "^35.7.5",
     "electron-builder": "^26.15.2",
+    "electron-builder-squirrel-windows": "26.15.2",
     "electron-rebuild": "^3.2.9",
     "tsx": "^4.22.4",
     "typescript": "~6.0.2",
