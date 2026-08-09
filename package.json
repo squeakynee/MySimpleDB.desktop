@@ -29,6 +29,7 @@
         "dmg"
       ],
       "category": "public.app-category.productivity",
+      "artifactName": "MySimpleDB-${version}-${arch}.${ext}",
       "icon": "build/icon.icns"
     },
     "dmg": {
